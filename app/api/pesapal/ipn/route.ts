@@ -5,7 +5,7 @@ export async function POST(req: Request) {
 		const body = await req.json();
 		console.log("Pesapal IPN Recieved", body); // debugging
 
-		const { order_tracking_id, transaction _reference, status } = body;
+		const { order_tracking_id } = body;
 
 		//step: 1 Verify the transaction status with Pesapal
 		const verificationUrl = `${process.env.PESAPAL_API_URL}/Transactions/GetTransactionStatus?orderTrackingId=${order_tracking_id}`;
