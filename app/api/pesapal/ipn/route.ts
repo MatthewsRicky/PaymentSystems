@@ -1,21 +1,25 @@
 import { NextResponse } from "next/server";
 
+// Handle GET requests (Pesapal verification)
+export async function GET() {
+	return NextResponse.json({ message: "Pesapal IPN URL Verified" });
+}
+
+// Handle POST requests (Actual IPN Notifications)
 export async function POST(req: Request) {
 	try {
-		// Verify the request is coming from Pesapal (Security Check)
 		const pesapalSignature = req.headers.get("X-Pesapal-Signature");
 
 		if (!pesapalSignature || pesapalSignature !== process.env.PESAPAL_SECRET_KEY) {
 			return NextResponse.json({ error: "Unauthorized request" }, { status: 401 });
 		}
 
-		// Parse incoming IPN request
 		const body = await req.json();
 		console.log("Pesapal IPN Received:", body);
 
 		const { OrderTrackingId } = body;
 
-		// Verify the payment status with Pesapal
+		// Fetch the actual payment status from Pesapal
 		const response = await fetch(`${process.env.PESAPAL_API_URL}/Transactions/GetTransactionStatus?OrderTrackingId=${OrderTrackingId}`, {
 			method: "GET",
 			headers: {
@@ -25,12 +29,8 @@ export async function POST(req: Request) {
 		});
 
 		const paymentStatus = await response.json();
-
-		// Log the verified payment status
 		console.log("Verified Payment Status:", paymentStatus);
 
-		// TODO: Update your database with the payment status
-		// Example: updateOrderStatus(MerchantReference, paymentStatus.status);
 
 		return NextResponse.json({ message: "IPN Processed Successfully" });
 	} catch (error) {
