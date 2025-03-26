@@ -1,34 +1,40 @@
-import { NextResponse} from "next/server";
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
 	try {
+		// Verify the request is coming from Pesapal (Security Check)
+		const pesapalSignature = req.headers.get("X-Pesapal-Signature");
+
+		if (!pesapalSignature || pesapalSignature !== process.env.PESAPAL_SECRET_KEY) {
+			return NextResponse.json({ error: "Unauthorized request" }, { status: 401 });
+		}
+
+		// Parse incoming IPN request
 		const body = await req.json();
-		console.log("Pesapal IPN Recieved", body); // debugging
+		console.log("Pesapal IPN Received:", body);
 
-		const { order_tracking_id } = body;
+		const { OrderTrackingId } = body;
 
-		//step: 1 Verify the transaction status with Pesapal
-		const verificationUrl = `${process.env.PESAPAL_API_URL}/Transactions/GetTransactionStatus?orderTrackingId=${order_tracking_id}`;
-		const response = await fetch(verificationUrl, {
+		// Verify the payment status with Pesapal
+		const response = await fetch(`${process.env.PESAPAL_API_URL}/Transactions/GetTransactionStatus?OrderTrackingId=${OrderTrackingId}`, {
 			method: "GET",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Bearer ${process.env.PESAPAL_API_URL}`, //Get a fresh token first
-			}
-		})
+				Authorization: `Bearer ${process.env.PESAPAL_AUTH_TOKEN}`,
+			},
+		});
 
-		const verificationData = await response.json();
-		console.log("Verification Data", verificationData);
-		if (verificationData.status === "Completed") {
-			console.log("Payment Successful", verificationData);
-			// Step 2: Update Database (Example)
-			//await db.updateTransaction(transaction_reference, {status: 'Paid"})
-		} else {
-			console.log("Payment Not Completed: ", verificationData);
-		}
-		return NextResponse.json({ message: "IPN Processed"})
+		const paymentStatus = await response.json();
+
+		// Log the verified payment status
+		console.log("Verified Payment Status:", paymentStatus);
+
+		// TODO: Update your database with the payment status
+		// Example: updateOrderStatus(MerchantReference, paymentStatus.status);
+
+		return NextResponse.json({ message: "IPN Processed Successfully" });
 	} catch (error) {
-		console.error("IPN Error: ", error);
-		return NextResponse.json({ error: "Error Processing IPN"}, {status: 500})
+		console.error("Pesapal IPN Error:", error);
+		return NextResponse.json({ error: "Failed to process IPN" }, { status: 500 });
 	}
 }
