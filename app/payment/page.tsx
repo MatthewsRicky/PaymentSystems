@@ -14,7 +14,7 @@ export default function PaymentPage(){
 		setPaymentUrl(null);
 
 		try {
-			const response = await fetch("/api/pesapal/payments", {
+			const response = await fetch("/api/pesapal/payment", {
 				method: "POST",
 				headers: {"Content-Type": "application/json"},
 				body: JSON.stringify({
