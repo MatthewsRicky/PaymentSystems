@@ -25,6 +25,7 @@ export async function POST(req: Request) {
 			headers: {
 				"Content-Type": "application/json",
 				Authorization: `Bearer ${process.env.PESAPAL_AUTH_TOKEN}`,
+				"Accept": "application/json",
 			},
 		});
 
