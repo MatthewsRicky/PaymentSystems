@@ -25,12 +25,14 @@ export async function POST(req: Request) {
 		currency,
 		amount,
 		description,
-		callback_url: "https://yourwebsite.com/payment-success",
+		callback_url: "https://all-poems-joke.loca.lt/payment",
 		notification_id: "YOUR_IPN_ID", // Set up an Instant Payment Notification (IPN)
 		email,
 		phone_number: phoneNumber,
 		payment_method: paymentMethod, // Visa, M-Pesa, PayPal (Pesapal handles selection)
 	};
+
+	console.log(payload);
 
 	try {
 		const response = await fetch(PESAPAL_URL, {
