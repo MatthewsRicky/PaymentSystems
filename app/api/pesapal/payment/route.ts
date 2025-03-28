@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 			amount,
 			currency: currency || "KES", // Default to Kenyan Shilling
 			description: "Order Payment",
-			callback_url: "https://payment-systems-three.vercel.app/payment", // Your redirect URL
+			callback_url: "https://all-poems-joke.loca.lt/payment", // Your redirect URL
 			notification_id: process.env.PESAPAL_IPN_ID, // IPN Notification ID from Pesapal
 			email,
 			phone_number: phoneNumber,
