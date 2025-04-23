@@ -1,41 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 
-// Handle GET requests (Pesapal verification)
-export async function GET() {
-	return NextResponse.json({ message: "Pesapal IPN URL Verified" });
-}
-
-// Handle POST requests (Actual IPN Notifications)
-export async function POST(req: Request) {
+export async function POST(req: Request): Promise<NextResponse> {
 	try {
-		const pesapalSignature = req.headers.get("X-Pesapal-Signature");
+		const body = await req.text();  //important to use req.text()
+		const data = Object.fromEntries(new URLSearchParams(body).entries());
+		console.log('Pesapal IPN received:', data);
 
-		if (!pesapalSignature || pesapalSignature !== process.env.PESAPAL_SECRET_KEY) {
-			return NextResponse.json({ error: "Unauthorized request" }, { status: 401 });
-		}
+		// Extract relevant information from the IPN payload
+		const transactionTrackingId = data.tracking_id;
+		const paymentStatus = data.payment_status;
+		const paymentMethod = data.payment_method;
+		const merchantReference = data.merchant_reference; // Your notification_id
 
-		const body = await req.json();
-		console.log("Pesapal IPN Received:", body);
+		// **Important:**
+		// 1. Verify the authenticity of the IPN (refer to Pesapal documentation on IPN security).
+		// 2. Update your database with the transaction status based on the received information.
+		// 3. Respond to Pesapal with a "RECEIVED" status to acknowledge the IPN.
 
-		const { OrderTrackingId } = body;
-
-		// Fetch the actual payment status from Pesapal
-		const response = await fetch(`${process.env.PESAPAL_API_URL}/Transactions/GetTransactionStatus?OrderTrackingId=${OrderTrackingId}`, {
-			method: "GET",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${process.env.PESAPAL_AUTH_TOKEN}`,
-				"Accept": "application/json",
-			},
-		});
-
-		const paymentStatus = await response.json();
-		console.log("Verified Payment Status:", paymentStatus);
-
-
-		return NextResponse.json({ message: "IPN Processed Successfully" });
+		// Example response:
+		return new NextResponse('RECEIVED', { status: 200 });
 	} catch (error) {
-		console.error("Pesapal IPN Error:", error);
-		return NextResponse.json({ error: "Failed to process IPN" }, { status: 500 });
-	}
-}
+		console.error('Error handling Pesapal IPN:', error);
+		return new NextResponse('Error processing IPN', {status: 500});
+	}}
