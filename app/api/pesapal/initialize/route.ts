@@ -1,95 +1,46 @@
-import { NextResponse } from 'next/server';
+// app/api/pesapal/initiate/route.ts
 import axios from 'axios';
-import { createHmac } from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
 
-interface InitializeResponse {
-	status: string;
-	redirect_url?: string;
-	error?: string;
-}
+export async function POST(req: NextRequest) {
+	const { firstName, lastName, email, amount, phoneNumber, description } = await req.json();
 
-export async function POST(req: Request): Promise<NextResponse> {
 	try {
-		const { amount, currency, description, callback_url, notification_id } = await req.json();
+		// Get token
+		const tokenResponse = await axios.get(`${process.env.NEXT_PUBLIC_SITE_URL}/api/pesapal/token`);
+		const token = tokenResponse.data.token;
 
-		const consumerKey = process.env.PESAPAL_CONSUMER_KEY; // Store in environment variables
-		const consumerSecret = process.env.PESAPAL_CONSUMER_SECRET; // Store in environment variables
-
-		if (!consumerKey || !consumerSecret) {
-			return NextResponse.json({ error: 'Pesapal API keys not configured.' }, { status: 500 });
-		}
-
-		const timestamp = Math.floor(Date.now() / 1000);
-		const nonce = Math.random().toString(36).substring(2, 15);
-
-		const signatureMethod = 'HMAC-SHA1';
-		const version = '1.0';
-
-		const baseStringParams = {
-			oauth_consumer_key: consumerKey,
-			oauth_nonce: nonce,
-			oauth_signature_method: signatureMethod,
-			oauth_timestamp: timestamp,
-			oauth_version: version,
+		const payload = {
+			id: crypto.randomUUID(),
+			currency: 'KES',
 			amount,
-			currency,
 			description,
-			callback_url,
-			notification_id,
+			callback_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/pesapal/ipn`,
+			cancellation_url: `${process.env.NEXT_PUBLIC_SITE_URL}/cancel`,
+			notification_id: 'YOUR_NOTIFICATION_ID_FROM_PESAPAL',
+			billing_address: {
+				email_address: email,
+				phone_number: phoneNumber,
+				first_name: firstName,
+				last_name: lastName,
+			},
 		};
 
-		const baseString = Object.keys(baseStringParams)
-			.sort()
-			.map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(baseStringParams[key])}`)
-			.join('&');
-
-		const signatureKey = `${encodeURIComponent(consumerSecret)}&`;
-
-		const signature = createHmac('sha1', signatureKey)
-			.update(baseString)
-			.digest('base64');
-
-		const oauthSignature = encodeURIComponent(signature);
-
-		const postData = {
-			amount,
-			currency,
-			description,
-			callback_url,
-			notification_id,
-			oauth_consumer_key: consumerKey,
-			oauth_timestamp: timestamp,
-			oauth_nonce: nonce,
-			oauth_signature_method: signatureMethod,
-			oauth_version: version,
-			oauth_signature: oauthSignature,
-		};
-
-		const pesapalResponse = await axios.post<InitializeResponse>(
-			'https://www.pesapal.com/api/PostPesapalDirectOrderV3', // Use the correct Pesapal API endpoint
-			postData,
+		const { data } = await axios.post(
+			`${process.env.PESAPAL_BASE_URL}/api/Transactions/SubmitOrderRequest`,
+			payload,
 			{
 				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded',
-				},
-				transformRequest: (data) => {
-					return Object.keys(data)
-						.map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(data[key])}`)
-						.join('&');
+					Authorization: `Bearer ${token}`,
+					Accept: 'application/json',
+					'Content-Type': 'application/json',
 				},
 			}
 		);
 
-		const { status, redirect_url, error } = pesapalResponse.data;
-
-		if (status === 'OK' && redirect_url) {
-			return NextResponse.json({ redirectUrl: redirect_url }, { status: 200 });
-		} else {
-			console.error('Pesapal Error:', pesapalResponse.data);
-			return NextResponse.json({ error: error || 'Failed to initialize Pesapal transaction.' }, { status: 400 });
-		}
+		return NextResponse.json(data);
 	} catch (error: any) {
-		console.error('Error initializing Pesapal:', error);
-		return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+		console.error(error);
+		return NextResponse.json({ error: error.message }, { status: 500 });
 	}
 }

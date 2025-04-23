@@ -1,25 +1,42 @@
-import { NextResponse } from 'next/server';
+// app/api/pesapal/ipn/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 
-export async function POST(req: Request): Promise<NextResponse> {
+export async function POST(req: NextRequest) {
 	try {
-		const body = await req.text();  //important to use req.text()
-		const data = Object.fromEntries(new URLSearchParams(body).entries());
-		console.log('Pesapal IPN received:', data);
+		const { order_tracking_id, merchant_reference } = await req.json();
 
-		// Extract relevant information from the IPN payload
-		const transactionTrackingId = data.tracking_id;
-		const paymentStatus = data.payment_status;
-		const paymentMethod = data.payment_method;
-		const merchantReference = data.merchant_reference; // Your notification_id
+		if (!order_tracking_id || !merchant_reference) {
+			return NextResponse.json({ message: 'Missing parameters' }, { status: 400 });
+		}
 
-		// **Important:**
-		// 1. Verify the authenticity of the IPN (refer to Pesapal documentation on IPN security).
-		// 2. Update your database with the transaction status based on the received information.
-		// 3. Respond to Pesapal with a "RECEIVED" status to acknowledge the IPN.
+		// STEP 1: Get Auth Token
+		const tokenRes = await axios.get(`${process.env.NEXT_PUBLIC_SITE_URL}/api/pesapal/token`);
+		const token = tokenRes.data.token;
 
-		// Example response:
-		return new NextResponse('RECEIVED', { status: 200 });
+		// STEP 2: Query Payment Status
+		const queryUrl = `${process.env.PESAPAL_BASE_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${order_tracking_id}`;
+
+		const statusRes = await axios.get(queryUrl, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+				Accept: 'application/json',
+			},
+		});
+
+		const statusData = statusRes.data;
+
+		console.log('[PESAPAL IPN] Status Data:', statusData);
+
+		// STEP 3: Update DB (pseudocode)
+		// await db.updateTransaction(merchant_reference, {
+		//   status: statusData.payment_status,
+		//   order_tracking_id,
+		// });
+
+		return NextResponse.json({ received: true, status: statusData.payment_status });
 	} catch (error) {
-		console.error('Error handling Pesapal IPN:', error);
-		return new NextResponse('Error processing IPN', {status: 500});
-	}}
+		console.error('[PESAPAL IPN ERROR]', error);
+		return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+	}
+}
