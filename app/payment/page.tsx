@@ -1,70 +1,61 @@
-'use client'
+'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
-export default function PaymentForm() {
+export default function PaymentPage() {
 	const [amount, setAmount] = useState('');
-	const [description, setDescription] = useState('Product Purchase');
-	const router = useRouter();
-	const [callbackUrl, setCallbackUrl] = useState('');
-
-	useEffect(() => {
-		// In a real app, this should be an absolute URL
-		setCallbackUrl(`${window.location.origin}/payment-callback`);
-	}, []);
-
+	const [description, setDescription] = useState('');
+	const [loading, setLoading] = useState(false);
 
 	const handlePayment = async () => {
+		setLoading(true);
 		try {
-			// const callbackUrl = `${window.location.origin}/payment-callback`; // Define your callback URL
-			const notificationId = Math.random().toString(36).substring(7); // Generate a unique ID
-
-			const response = await fetch('/api/pesapal/initialize', {
+			const res = await fetch('/api/pesapal/payment', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({
 					amount,
-					currency: 'KES', // Or your desired currency
 					description,
-					callback_url: callbackUrl,
-					notification_id: notificationId,
+					reference: `REF-${Date.now()}`,
 				}),
 			});
 
-			const data = await response.json();
+			const data = await res.json();
+			console.log(data); // Optional: display response or redirect user
 
-			if (data.redirectUrl) {
-				window.location.href = data.redirectUrl;
-			} else {
-				console.error('Pesapal initialization failed:', data.error);
-				// Handle error on the frontend
-				alert(`Payment initialization failed: ${data.error || 'Unknown error'}`);
-			}
-		} catch (error) {
-			console.error('Error initiating payment:', error);
-			if (error instanceof Error) {
-				alert(`Error initiating payment: ${error.message}`);
-			} else {
-				alert('Error initiating payment: An unknown error occurred');
-			}
-			// Handle error on the frontend
+			// You might want to redirect to PesaPal iframe here if needed
+		} catch (err) {
+			console.error('Payment error:', err);
+		} finally {
+			setLoading(false);
 		}
 	};
 
 	return (
-		<div>
-			<h2>Make Payment</h2>
+		<div className="max-w-md mx-auto p-6 space-y-4">
+			<h1 className="text-xl font-semibold">Make a Payment</h1>
 			<input
-				type="number"
+				type="text"
 				placeholder="Amount"
 				value={amount}
 				onChange={(e) => setAmount(e.target.value)}
+				className="w-full border rounded p-2"
 			/>
-			<button onClick={handlePayment} disabled={!amount}>
-				Pay Now
+			<input
+				type="text"
+				placeholder="Description"
+				value={description}
+				onChange={(e) => setDescription(e.target.value)}
+				className="w-full border rounded p-2"
+			/>
+			<button
+				onClick={handlePayment}
+				className="bg-blue-600 text-white px-4 py-2 rounded"
+				disabled={loading}
+			>
+				{loading ? 'Processing...' : 'Pay Now'}
 			</button>
 		</div>
 	);
