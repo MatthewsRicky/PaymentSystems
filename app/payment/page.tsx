@@ -4,13 +4,14 @@ import { useState } from 'react';
 
 export default function PaymentPage() {
 	const [amount, setAmount] = useState('');
+	const [method, setMethod] = useState('');
 	const [description, setDescription] = useState('');
 	const [loading, setLoading] = useState(false);
 
 	const handlePayment = async () => {
 		setLoading(true);
 		try {
-			const res = await fetch('/api/pesapal/payment', {
+			const res = await fetch(`/api/pesapal/payment/${method}`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -23,11 +24,19 @@ export default function PaymentPage() {
 			});
 
 			const data = await res.json();
-			console.log(data); // Optional: display response or redirect user
+
+			// Optional: display response or redirect user
+			console.log(data);
+			if (data.redirectUrl) {
+				window.location.href = data.redirectUrl;
+			} else {
+				alert('Payment initiated.');
+			}
 
 			// You might want to redirect to PesaPal iframe here if needed
 		} catch (err) {
 			console.error('Payment error:', err);
+			alert("Something went wrong");
 		} finally {
 			setLoading(false);
 		}
@@ -50,6 +59,15 @@ export default function PaymentPage() {
 				onChange={(e) => setDescription(e.target.value)}
 				className="w-full border rounded p-2"
 			/>
+			<select
+				value={method}
+				onChange={(e) => setMethod(e.target.value)}
+				className="w-full border p-2 rounded"
+			>
+				<option value="mpesa">M-Pesa</option>
+				<option value="visa">Visa</option>
+				<option value="paypal">PayPal</option>
+			</select>
 			<button
 				onClick={handlePayment}
 				className="bg-blue-600 text-white px-4 py-2 rounded"
